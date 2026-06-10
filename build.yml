@@ -1,0 +1,65 @@
+name: Build EXE
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:     [ 'v*' ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pywebview==4.4.1 pyinstaller==6.11.1
+
+      - name: Check files
+        run: |
+          echo "=== Root ==="
+          dir
+          echo "=== app ==="
+          dir app
+
+      - name: Build EXE
+        run: |
+          pyinstaller --onefile --windowed `
+            --name "INTOPS_발주서생성기" `
+            --add-data "app\INTOPS_발주서생성기.html;." `
+            app\main.py
+
+      - name: Verify build
+        run: |
+          dir dist
+          $size = (Get-Item "dist\INTOPS_발주서생성기.exe").Length / 1MB
+          Write-Host "EXE size: $([math]::Round($size,1)) MB"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: INTOPS_발주서생성기_Windows
+          path: dist\INTOPS_발주서생성기.exe
+          retention-days: 30
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist\INTOPS_발주서생성기.exe
+          name: "INTOPS 발주서 생성기 ${{ github.ref_name }}"
+          body: |
+            ## INTOPS 발주서 생성기 ${{ github.ref_name }}
+            `INTOPS_발주서생성기.exe` 를 다운로드하여 더블클릭으로 실행하세요.
+            Python 설치 불필요.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
