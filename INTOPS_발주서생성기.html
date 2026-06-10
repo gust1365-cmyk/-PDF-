@@ -194,7 +194,7 @@ textarea::placeholder{color:var(--t3);font-size:10.5px}
     <div class="tb-r">
       <div id="gSt" class="sline"></div>
       <button class="btn rst lg" id="rstBtn" onclick="resetAll()" style="display:none">🔄 리셋</button>
-      <button class="btn dk lg" id="genBtn" onclick="generateAll('print')" disabled>🖨️ PDF 일괄 생성</button>
+      <button class="btn dk lg" id="genBtn" onclick="generateAll('save')" disabled>🖨️ PDF 일괄 생성</button>
       <button class="btn lg" id="saveBtn" onclick="bulkSaveCheck()" disabled style="background:#1a6636;color:#fff;border-color:#1a6636">💾 PDF 일괄 저장</button>
     </div>
   </header>
@@ -579,7 +579,7 @@ function buildCard(vi){
         <span class="saved-chip${v.saved?' on':''}" id="sc${vi}">✓ 저장됨</span>
       </div>
       <div class="vcard-btn-wrap">
-        <button class="btn sm blu" onclick="generateOne(${vi},'print')" id="pdfBtn${vi}">📄 PDF 생성</button>
+        <button class="btn sm blu" onclick="generateOne(${vi},'save')" id="pdfBtn${vi}">📄 PDF 생성</button>
         <span style="display:${v.pdfDone?'inline-flex':'none'};font-size:10px;color:#1a6636;background:#edf6f0;border:1px solid #b8dfc7;border-radius:4px;padding:3px 8px;font-weight:600;white-space:nowrap;justify-content:center" id="pdfDone${vi}">✓ 생성완료</span>
       </div>
     </div>`;
@@ -682,7 +682,7 @@ function getInfo(){
 }
 
 /* ── 일괄 생성/저장 ── */
-async function generateAll(mode='print', dirHandle=null){
+async function generateAll(mode='save', dirHandle=null){
   if(!vendors.length)return;
   $('genBtn').disabled=true;
   $('saveBtn').disabled=true;
@@ -714,51 +714,19 @@ async function generateAll(mode='print', dirHandle=null){
       await sleep(80);
     }
 
-    // Step 2: 렌더링 완료 → 폴더 선택 (user gesture 보장)
-    setSt('g','loading','저장 폴더를 선택해 주세요...');
-    let dh = null;
-    if(window.showDirectoryPicker){
-      try{
-        dh = await window.showDirectoryPicker({mode:'readwrite'});
-      }catch(e){
-        if(e.name==='AbortError'){
-          // 취소 → <a> 다운로드로 fallback
-          setSt('g','loading','다운로드 폴더에 저장 중...');
-        }
-        // dh remains null → fallback
-      }
-    }
-
-    // Step 3: 저장
+    // Step 2: 팝업 없이 바로 다운로드
     setSt('g','loading','파일 저장 중...');
     for(let i=0;i<blobs.length;i++){
       const fname=fnames[i];
-      if(dh){
-        try{
-          const fh=await dh.getFileHandle(fname+'.pdf',{create:true});
-          const ws=await fh.createWritable();
-          await ws.write(blobs[i]);
-          await ws.close();
-        }catch(e){
-          // 폴더 저장 실패 → <a> 다운로드
-          const a=document.createElement('a');
-          a.href=URL.createObjectURL(new File([blobs[i]],fname+'.pdf',{type:'application/pdf'}));
-          a.download=fname+'.pdf';
-          document.body.appendChild(a); a.click(); document.body.removeChild(a);
-          setTimeout(()=>URL.revokeObjectURL(a.href),5000);
-        }
-      }else{
-        const a=document.createElement('a');
-        a.href=URL.createObjectURL(new File([blobs[i]],fname+'.pdf',{type:'application/pdf'}));
-        a.download=fname+'.pdf';
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(()=>URL.revokeObjectURL(a.href),5000);
-      }
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(new File([blobs[i]],fname+'.pdf',{type:'application/pdf'}));
+      a.download=fname+'.pdf';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(a.href),5000);
       const rowEl=$(`dlr${i}`);
       if(rowEl)rowEl.innerHTML=`<span class="dl-nm">📄 ${esc(fname)}.pdf</span>`
         +`<div style="display:flex;gap:5px">`
-        +`<a class="dl-a" onclick="generateOne(${i},'print')">🔍 미리보기</a>`
-        +`<a class="dl-a" onclick="generateOne(${i},'save')">💾 저장</a>`
+        +`<a class="dl-a" onclick="generateOne(${i},'save')">💾 다시 저장</a>`
         +`</div>`;
       await sleep(100);
     }
@@ -768,7 +736,7 @@ async function generateAll(mode='print', dirHandle=null){
     // ── 일괄 생성(미리보기) ──
     setSt('g','loading','발주서 생성 중...');
     for(let vi=0;vi<vendors.length;vi++){
-      await generateOne(vi,'print');
+      await generateOne(vi,'save');
       await sleep(200);
     }
     setSt('g','ok',`✓ ${vendors.length}개 발주서 생성 완료`);
@@ -780,7 +748,7 @@ async function generateAll(mode='print', dirHandle=null){
 }
 
 /* ── 개별 생성/저장 ── */
-async function generateOne(vi, mode='print'){
+async function generateOne(vi, mode='save'){
   const v    = vendors[vi];
   const info = getInfo();
   const fname = `${v.vendor}(${info.date})`;
@@ -809,8 +777,7 @@ async function generateOne(vi, mode='print'){
   // ④ 결과 목록: 완료 후 링크 표시
   rowEl.innerHTML = `<span class="dl-nm">📄 ${esc(fname)}.pdf</span>`
     + `<div style="display:flex;gap:5px">`
-    + `<a class="dl-a" onclick="generateOne(${vi},'print')">🔍 미리보기</a>`
-    + `<a class="dl-a" onclick="generateOne(${vi},'save')">💾 저장</a>`
+    + `<a class="dl-a" onclick="generateOne(${vi},'save')">💾 다시 저장</a>`
     + `</div>`;
 }
 
@@ -904,43 +871,15 @@ async function makePDF(vi, mode) {
     document.body.removeChild(wrap);
   }
 
-  if (mode === 'save') {
-    const pdfBlob = doc.output('blob');
-    if (window.showSaveFilePicker) {
-      try {
-        const fh = await window.showSaveFilePicker({
-          suggestedName: fname + '.pdf',
-          types: [{ description: 'PDF', accept: { 'application/pdf': ['.pdf'] } }]
-        });
-        const ws = await fh.createWritable();
-        await ws.write(pdfBlob);
-        await ws.close();
-      } catch(e) {
-        if (e.name !== 'AbortError') {
-          // fallback: <a> download
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(new File([pdfBlob], fname+'.pdf', {type:'application/pdf'}));
-          a.download = fname + '.pdf';
-          document.body.appendChild(a); a.click(); document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-        }
-      }
-    } else {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new File([pdfBlob], fname+'.pdf', {type:'application/pdf'}));
-      a.download = fname + '.pdf';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-    }
-  } else {
-    // PDF 생성 버튼: 팝업 없이 바로 다운로드
-    const pdfBlob = doc.output('blob');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new File([pdfBlob], fname + '.pdf', {type:'application/pdf'}));
-    a.download = fname + '.pdf';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  }
+  // 팝업 없이 무조건 직접 다운로드
+  const pdfBlob = doc.output('blob');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new File([pdfBlob], fname + '.pdf', {type:'application/pdf'}));
+  a.download = fname + '.pdf';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
 /* ── 발주서 본문 HTML (캔버스 렌더용) ── */
