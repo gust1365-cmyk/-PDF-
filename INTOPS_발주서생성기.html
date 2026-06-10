@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INTOPS 발주서 생성기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f4f0;--bg2:#eceae4;--wh:#fff;
+  --bd:#dddad2;--bd2:#c6c3bb;
+  --t1:#1c1b18;--t2:#6b6860;--t3:#a09d96;
+  --grn:#1a6636;--red:#b93025;--blu:#1155cc;
+  --r:6px;--rl:10px;--sh:0 1px 4px rgba(0,0,0,.07);--sh2:0 8px 32px rgba(0,0,0,.2);
+}
+html,body{height:100%;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:13px;color:var(--t1);background:var(--bg)}
+
+/* ── LAYOUT ── */
+.shell{display:grid;grid-template-rows:52px 1fr;height:100vh;overflow:hidden}
+.topbar{background:var(--wh);border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;padding:0 22px;z-index:20;gap:12px}
+.logo{font-size:14px;font-weight:700;letter-spacing:.14em;white-space:nowrap}
+.logo em{font-style:normal;font-weight:400;font-size:11.5px;color:var(--t3);letter-spacing:0;margin-left:9px}
+.tb-r{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.cols{display:grid;grid-template-columns:300px 1fr;height:100%;overflow:hidden}
+
+/* ── LEFT ── */
+.left{background:var(--wh);border-right:1px solid var(--bd);overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:18px}
+.sec{display:flex;flex-direction:column;gap:8px}
+.sec-t{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);padding-bottom:7px;border-bottom:1px solid var(--bg2)}
+.gr{display:grid;gap:7px}
+.c1{grid-template-columns:1fr}
+.c2{grid-template-columns:1fr 1fr}
+.c3{grid-template-columns:1fr 1fr 1fr}
+.f{display:flex;flex-direction:column;gap:3px}
+.f label{font-size:10px;color:var(--t3);font-weight:500}
+.f input{height:30px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px;font-family:inherit;background:var(--bg);color:var(--t1);width:100%;transition:border-color .14s,background .14s}
+.f input:focus{outline:none;border-color:var(--t1);background:var(--wh)}
+
+/* ── RIGHT ── */
+.right{display:grid;grid-template-rows:auto 1fr;overflow:hidden}
+.rt{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--bd)}
+.rt>div{padding:16px 18px}
+.rt>div:first-child{border-right:1px solid var(--bd)}
+
+/* ── UPLOAD ── */
+.dz{border:1.5px dashed var(--bd2);border-radius:var(--rl);padding:16px;text-align:center;cursor:pointer;transition:all .14s;background:var(--bg)}
+.dz:hover,.dz.over{background:var(--bg2);border-color:var(--t2)}
+.dz-i{font-size:24px;margin-bottom:4px}
+.dz-t{font-size:13px;font-weight:600;margin-bottom:2px}
+.dz-s{font-size:11px;color:var(--t3)}
+.chip{display:none;margin-top:7px;font-size:11px;color:var(--t2);background:var(--bg2);border-radius:4px;padding:3px 8px}
+.or{display:flex;align-items:center;gap:7px;margin:8px 0;font-size:10px;color:var(--t3)}
+.or::before,.or::after{content:'';flex:1;height:1px;background:var(--bd)}
+textarea{width:100%;height:80px;border:1px solid var(--bd);border-radius:var(--r);padding:7px 9px;font-size:11px;font-family:'Consolas','Courier New',monospace;color:var(--t1);background:var(--bg);resize:none;line-height:1.6;transition:border-color .14s}
+textarea:focus{outline:none;border-color:var(--t1);background:var(--wh)}
+textarea::placeholder{color:var(--t3);font-size:10.5px}
+
+/* ── STATUS ── */
+.sline{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--t2);min-height:20px;margin-bottom:8px}
+.sline.ok{color:var(--grn)}
+.sline.err{color:var(--red)}
+
+/* ── DL LIST ── */
+.dl-list{display:flex;flex-direction:column;gap:5px;max-height:200px;overflow-y:auto}
+.dl-item{display:flex;align-items:center;justify-content:space-between;background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);padding:7px 10px;gap:8px}
+.dl-nm{font-size:11.5px;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl-a{font-size:11px;font-weight:600;color:var(--blu);text-decoration:none;padding:2px 7px;border:1px solid currentColor;border-radius:4px;opacity:.85;white-space:nowrap;flex-shrink:0;cursor:pointer}
+.dl-a:hover{opacity:1}
+
+/* ── VENDOR AREA ── */
+.varea{overflow-y:auto;padding:18px}
+.empty{text-align:center;padding:44px 20px;color:var(--t3)}
+.empty .ei{font-size:34px;margin-bottom:10px}
+.empty p{font-size:12px;line-height:1.9}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+
+/* ── VENDOR CARD ── */
+.vcard{background:var(--wh);border:1px solid var(--bd);border-radius:var(--rl);box-shadow:var(--sh);overflow:hidden}
+.vcard-head{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;background:var(--bg);border-bottom:1px solid var(--bd)}
+.vname{font-size:13px;font-weight:700}
+.vbadge{font-size:10px;background:var(--bd);color:var(--t2);border-radius:999px;padding:2px 8px;font-weight:600;white-space:nowrap}
+.vcard-body{padding:10px 13px 0}
+.vitems{margin-bottom:6px}
+.vitem{display:flex;justify-content:space-between;font-size:11px;padding:2.5px 0;border-bottom:1px solid var(--bg2)}
+.vitem:last-child{border-bottom:none}
+.vitem-name{flex:1;margin-right:8px;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vitem-qty{font-size:10.5px;color:var(--t2);white-space:nowrap}
+.more-items{font-size:10.5px;color:var(--t3);padding:4px 0;text-align:center}
+.vcard-foot{padding:8px 13px 10px;display:flex;gap:8px;border-top:1px solid var(--bg2);margin-top:6px}
+.vcard-btn-wrap{display:flex;flex-direction:column;gap:3px;flex:1}
+
+/* 저장 완료 배지 */
+.saved-chip{display:none;font-size:10px;color:var(--grn);background:#edf6f0;border:1px solid #b8dfc7;border-radius:4px;padding:3px 8px;font-weight:600;white-space:nowrap;justify-content:center}
+.saved-chip.on{display:inline-flex;align-items:center;gap:3px}
+
+/* ── MODAL ── */
+.mbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
+.mbg.open{display:flex}
+.modal{background:var(--wh);border-radius:var(--rl);box-shadow:var(--sh2);width:460px;max-width:96vw;max-height:92vh;overflow-y:auto;animation:mup .17s ease}
+@keyframes mup{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.mhd{display:flex;align-items:flex-start;justify-content:space-between;padding:16px 20px 14px;border-bottom:1px solid var(--bd);position:sticky;top:0;background:var(--wh);z-index:1}
+.mtitle{font-size:14px;font-weight:700}
+.msub{font-size:11px;color:var(--t3);margin-top:3px}
+.mclose{font-size:18px;cursor:pointer;color:var(--t2);line-height:1;padding:2px 5px;border-radius:4px;flex-shrink:0}
+.mclose:hover{background:var(--bg2)}
+.mbody{padding:18px 20px;display:flex;flex-direction:column;gap:9px}
+.mfoot{padding:14px 20px;border-top:1px solid var(--bd);display:flex;gap:8px;justify-content:space-between;align-items:center;position:sticky;bottom:0;background:var(--wh)}
+.mf{display:flex;flex-direction:column;gap:3px}
+.mf label{font-size:11px;color:var(--t2);font-weight:500}
+.mf input{height:32px;padding:0 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12.5px;font-family:inherit;background:var(--bg);color:var(--t1);width:100%;transition:border-color .14s,background .14s}
+.mf input:focus{outline:none;border-color:var(--t1);background:var(--wh)}
+.mg2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mg1{display:grid;grid-template-columns:1fr;gap:8px}
+.copy-link{font-size:11px;color:var(--blu);cursor:pointer;text-decoration:underline;opacity:.8;background:none;border:none;font-family:inherit;padding:0}
+.copy-link:hover{opacity:1}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:32px;padding:0 13px;border-radius:var(--r);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid var(--bd2);background:var(--wh);color:var(--t1);white-space:nowrap;transition:all .1s}
+.btn:hover{background:var(--bg2)}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.btn.dk{background:var(--t1);color:var(--wh);border-color:var(--t1)}
+.btn.dk:hover{background:#333}
+.btn.grn{background:var(--grn);color:var(--wh);border-color:var(--grn)}
+.btn.grn:hover{background:#226e42}
+.btn.blu{background:var(--blu);color:var(--wh);border-color:var(--blu)}
+.btn.blu:hover{background:#1a47aa}
+.btn.full{width:100%;height:34px;margin-top:8px}
+.btn.lg{height:36px;padding:0 17px;font-size:12.5px}
+.btn.sm{height:28px;padding:0 10px;font-size:11.5px;width:100%;justify-content:center}
+.btn.rst{background:#fff3f2;color:var(--red);border-color:#f0b8b3}
+.btn.rst:hover{background:#ffe8e6}
+
+/* ── SPINNER ── */
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--bd2);border-top-color:var(--t2);border-radius:50%;animation:sp .65s linear infinite;flex-shrink:0}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ── API BAR ── */
+.api-bar{background:#fffbea;border-bottom:1px solid #ede097;padding:7px 22px;display:flex;align-items:center;gap:9px;font-size:11.5px;color:#7a5800}
+.api-bar input{height:27px;padding:0 8px;border:1px solid #dfc95a;border-radius:5px;font-size:11.5px;background:var(--wh);color:var(--t1);width:310px;font-family:monospace}
+.api-bar input:focus{outline:none;border-color:#c0a020}
+
+/* ── PRINT ── */
+@media print{
+  .shell,.api-bar,.mbg,body>*:not(#print-area){display:none !important}
+  #print-area{display:block !important}
+  @page{size:A4;margin:14mm 15mm 14mm 15mm}
+}
+#print-area{display:none}
+.po{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:9.5pt;color:#000;background:#fff;page-break-after:always}
+.po:last-child{page-break-after:auto}
+.po-hr{text-align:right;margin-bottom:3mm}
+.po-logo img{height:10mm;width:auto}
+.po-logo img{height:10mm;width:auto}
+.po-logo{font-size:15pt;font-weight:900;letter-spacing:.18em}
+.po-sub{font-size:6.5pt;letter-spacing:.35em;color:#555;margin-top:1px}
+.po-title{font-size:22pt;font-weight:900;letter-spacing:.25em;margin:2mm 0 1mm}
+.po-date{font-size:8pt;color:#333;margin-bottom:4mm}
+.po-mt{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:5mm}
+.po-mt td{padding:1.1mm 1.5mm;vertical-align:top;line-height:1.65}
+.po-mt .lb{font-weight:700;white-space:nowrap;width:22mm}
+.po-mt .sp{width:6mm}
+.po-unit{text-align:right;font-size:7.5pt;color:#555;margin-bottom:1mm}
+.po-tb{width:100%;border-collapse:collapse;font-size:8.5pt}
+.po-tb th{background:#f2f1ed;border:.5pt solid #666;padding:2mm;font-weight:700;text-align:center;font-size:8pt}
+.po-tb td{border:.4pt solid #aaa;padding:1.7mm 2mm;height:8.5mm;vertical-align:middle}
+.po-tb td.c{text-align:center}
+.po-sum td{border:.5pt solid #666;background:#f8f8f6;font-weight:700;font-size:9.5pt;padding:2mm}
+.po-rm{margin-top:4mm;font-size:7.5pt;line-height:1.85;color:#222}
+.po-rm-t{font-weight:700;margin-bottom:1mm;font-size:8.5pt}
+.po-env{color:#0077cc;font-weight:700;margin-top:1.5mm}
+.po-ft{margin-top:3.5mm;font-size:7.5pt;color:#333;line-height:1.75}
+.po-sig{text-align:right;margin-top:5mm}
+.po-co{font-size:11pt;font-weight:800}
+.po-ceo{font-size:8pt;color:#444;margin-top:1mm}
+</style>
+</head>
+<body>
+
+<div class="api-bar">
+  <span>🔑 Anthropic API 키</span>
+  <input type="password" id="apiKey" placeholder="sk-ant-... (없어도 탭 구분 형식 자동 파싱됨)">
+  <span style="color:#bbb;font-size:10px">자유 형식 텍스트 인식이 필요한 경우에만 입력</span>
+</div>
+
+<div class="shell">
+  <header class="topbar">
+    <div class="logo">INTOPS <em>발주서 자동 생성기</em></div>
+    <div class="tb-r">
+      <div id="gSt" class="sline"></div>
+      <button class="btn rst lg" id="rstBtn" onclick="resetAll()" style="display:none">🔄 리셋</button>
+      <button class="btn dk lg" id="genBtn" onclick="generateAll('print')" disabled>🖨️ PDF 일괄 생성</button>
+      <button class="btn lg" id="saveBtn" onclick="bulkSaveCheck()" disabled style="background:#1a6636;color:#fff;border-color:#1a6636">💾 PDF 일괄 저장</button>
+    </div>
+  </header>
+
+  <div class="cols">
+    <!-- 좌측 패널 -->
+    <aside class="left">
+      <div class="sec">
+        <div class="sec-t">발주 기본 정보</div>
+        <div class="gr c2">
+          <div class="f"><label>발주일 *</label><input type="date" id="orderDate" onchange="syncOrderNo()"></div>
+          <div class="f"><label>발주서 No *</label><input type="text" id="orderNo" placeholder="P260429-1" style="font-size:11.5px"></div>
+        </div>
+        <div class="gr c1">
+          <div class="f"><label>사업자등록번호</label><input type="text" id="bizNo"></div>
+        </div>
+        <div class="gr c3">
+          <div class="f">
+            <label>단위</label>
+            <div style="display:flex;gap:5px">
+              <select id="unitSel" onchange="onGlobalUnitChange()" style="height:30px;padding:0 6px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px;font-family:inherit;background:var(--bg);color:var(--t1);flex:1;min-width:0">
+                <option value="EA">EA</option>
+                <option value="KG">KG</option>
+                <option value="custom">직접 입력</option>
+              </select>
+              <input type="text" id="unitDefault" placeholder="단위" value="EA" style="display:none;height:30px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px;font-family:inherit;background:var(--bg);color:var(--t1);width:60px">
+            </div>
+          </div>
+          <div class="f"><label>납기요청일</label><input type="date" id="deliveryDate"></div>
+          <div class="f"></div>
+        </div>
+        <p style="font-size:10px;color:#e07000;line-height:1.6;margin-top:2px">※ 정보 입력시 전체 발주서 즉시 변경.</p>
+      </div>
+
+      <div class="sec">
+        <div class="sec-t">수급자 (우리 회사)</div>
+        <div class="gr c2">
+          <div class="f"><label>회사명 *</label><input type="text" id="buyerName" value="인탑스"></div>
+          <div class="f"><label>담당자</label><input type="text" id="buyerManager"></div>
+        </div>
+        <div class="gr c2">
+          <div class="f"><label>직함</label><input type="text" id="buyerTitle" placeholder="과장"></div>
+          <div class="f"><label>Tel</label><input type="text" id="buyerTel"></div>
+        </div>
+        <div class="gr c2">
+          <div class="f"><label>Fax</label><input type="text" id="buyerFax"></div>
+          <div class="f"><label>E-mail</label><input type="text" id="buyerEmail"></div>
+        </div>
+        <div class="gr c1">
+          <div class="f"><label>주소</label><input type="text" id="buyerAddr"></div>
+        </div>
+        <div class="gr c1">
+          <div class="f"><label>Homepage</label><input type="text" id="buyerHomepage"></div>
+        </div>
+        <p style="font-size:10px;color:#e07000;line-height:1.6;margin-top:2px">※ 정보 입력시 전체 발주서 즉시 변경.</p>
+      </div>
+
+      <div class="sec">
+        <div class="sec-t">공급자 기본값</div>
+        <p style="font-size:10px;color:var(--t3);line-height:1.7;margin-top:-4px">
+          ※ 아래 공통 정보 기본값 입력 후 [업체 자동 분석] 클릭시 전체 적용. 업체명은 각 발주서의 회사명에 자동 적용.
+        </p>
+        <div class="gr c2">
+          <div class="f"><label>담당자</label><input type="text" id="defMgr"></div>
+          <div class="f"><label>직함</label><input type="text" id="defTitle" placeholder="과장"></div>
+        </div>
+        <div class="gr c2">
+          <div class="f"><label>Tel</label><input type="text" id="defTel"></div>
+          <div class="f"><label>Fax</label><input type="text" id="defFax"></div>
+        </div>
+        <div class="gr c2">
+          <div class="f"><label>E-mail</label><input type="text" id="defEmail"></div>
+          <div class="f"><label>Homepage</label><input type="text" id="defHomepage"></div>
+        </div>
+        <div class="gr c1">
+          <div class="f"><label>주소</label><input type="text" id="defAddr"></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 우측 패널 -->
+    <main class="right">
+      <div class="rt">
+        <div>
+          <div class="sec-t" style="margin-bottom:9px">발주 내역 파일</div>
+          <div class="dz" id="dz" onclick="document.getElementById('fi').click()">
+            <div class="dz-i">📂</div>
+            <div class="dz-t">텍스트 파일 업로드</div>
+            <div class="dz-s">.txt .csv .tsv 등 텍스트 파일 · 클릭 또는 끌어다 놓기</div>
+          </div>
+          <div class="chip" id="chip"></div>
+          <input type="file" id="fi" accept=".txt,.csv,.tsv,.text,text/plain,text/csv" style="display:none">
+          <div class="or">또는 직접 입력</div>
+          <textarea id="rawText" placeholder="[업체명A]&#10;품목1 수량&#10;&#10;[업체명B]&#10;품목1 수량&#10;&#10;또는 탭 구분:&#10;코드&#9;업체명&#9;품목명&#9;수량"></textarea>
+          <button class="btn dk full" onclick="parseVendors()">🔍 업체 자동 분석</button>
+        </div>
+        <div>
+          <div class="sec-t" style="margin-bottom:9px">생성 결과</div>
+          <div id="pSt" class="sline">분석 대기 중...</div>
+          <div id="dlList" class="dl-list"></div>
+          <p id="dlEmpty" style="font-size:11px;color:var(--t3)">PDF 생성 후 여기에 링크가 나타납니다.</p>
+        </div>
+      </div>
+
+      <div class="varea" id="varea">
+        <div class="empty">
+          <div class="ei">📋</div>
+          <p>발주 내역 파일을 업로드하고<br><strong>업체 자동 분석</strong>을 실행하면<br>업체별 카드가 나타납니다.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- 공급자 정보 입력 모달 -->
+<div class="mbg" id="mbg">
+  <div class="modal">
+    <div class="mhd">
+      <div>
+        <div class="mtitle" id="mTitle">공급자 정보 입력</div>
+        <div class="msub" id="mSub"></div>
+      </div>
+      <span class="mclose" onclick="closeModal()">✕</span>
+    </div>
+    <div class="mbody">
+      <div class="mg2">
+        <div class="mf"><label>회사명 (공급자) *</label><input type="text" id="m_base" placeholder="발주 대상 업체명"></div>
+        <div class="mf">
+          <label>단위</label>
+          <div style="display:flex;gap:5px;align-items:center">
+            <select id="m_unit_sel" onchange="onUnitSelChange()" style="height:32px;padding:0 6px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px;font-family:inherit;background:var(--bg);color:var(--t1);flex:1">
+              <option value="EA">EA</option>
+              <option value="KG">KG</option>
+              <option value="custom">직접 입력</option>
+            </select>
+            <input type="text" id="m_unit_custom" placeholder="단위" style="display:none;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px;font-family:inherit;background:var(--bg);color:var(--t1);width:70px">
+          </div>
+        </div>
+      </div>
+      <div class="mg2">
+        <div class="mf"><label>담당자</label><input type="text" id="m_mgr"></div>
+        <div class="mf"><label>직함</label><input type="text" id="m_title" placeholder="과장"></div>
+      </div>
+      <div class="mg2">
+        <div class="mf"><label>Tel</label><input type="text" id="m_tel"></div>
+        <div class="mf"><label>Fax</label><input type="text" id="m_fax"></div>
+      </div>
+      <div class="mg2">
+        <div class="mf"><label>E-mail</label><input type="text" id="m_email"></div>
+        <div class="mf"><label>Homepage</label><input type="text" id="m_homepage"></div>
+      </div>
+      <div class="mg1">
+        <div class="mf"><label>주소</label><input type="text" id="m_addr"></div>
+      </div>
+      <div class="mg2">
+        <div class="mf">
+          <label>납기요청일 <span style="font-size:10px;color:var(--t3);font-weight:400">(비워두면 공통 납기요청일 적용)</span></label>
+          <input type="date" id="m_delivery">
+        </div>
+        <div class="mf" style="align-self:flex-end">
+          <button type="button" class="btn sm" onclick="$('m_delivery').value=''" style="margin-bottom:0;width:100%">날짜 초기화</button>
+        </div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="copy-link" onclick="fillDefault()">← 기본값 불러오기</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="closeModal()">취소</button>
+        <button class="btn grn" onclick="saveModal()">💾 저장 및 적용</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="print-area"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+function onUnitSelChange(){
+  const sel=$('m_unit_sel'), cust=$('m_unit_custom');
+  if(sel.value==='custom'){cust.style.display='';cust.focus();}
+  else{cust.style.display='none';}
+}
+
+function onGlobalUnitChange(){
+  const sel=$('unitSel'), inp=$('unitDefault');
+  if(sel.value==='custom'){
+    inp.style.display=''; inp.value=''; inp.focus();
+  } else {
+    inp.style.display='none'; inp.value=sel.value;
+  }
+}
+let vendors = [];   // [{vendor, items, sup:{base,mgr,title,tel,fax,email,homepage,addr}, saved}]
+let editingVi = null;
+let _bulkDirHandle = null; // 일괄 저장 디렉토리 핸들 (재사용)
+
+/* ── 초기화 ── */
+(function(){
+  const d=new Date(),yy=d.getFullYear(),mm=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');
+  $('orderDate').value=`${yy}-${mm}-${dd}`;
+  $('orderNo').value='P'+String(yy).slice(2)+mm+dd+'-1';
+})();
+
+function syncOrderNo(){
+  const val=$('orderDate').value;
+  if(!val)return;
+  const [yy,mm,dd]=val.split('-');
+  const cur=$('orderNo').value;
+  const m=cur.match(/^P\d+-(\d+)$/);
+  const seq=m?m[1]:'1';
+  $('orderNo').value='P'+yy.slice(2)+mm+dd+'-'+seq;
+}
+
+/* ── 파일 D&D ── */
+const dz=$('dz'),fi=$('fi');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');loadFile(e.dataTransfer.files[0])});
+fi.addEventListener('change',()=>loadFile(fi.files[0]));
+function loadFile(f){
+  if(!f) return;
+  const ext = f.name.split('.').pop().toLowerCase();
+  const allowed = ['txt','csv','tsv','text','log'];
+  if(f.type && !f.type.startsWith('text/') && !allowed.includes(ext)){
+    alert('텍스트 파일(.txt, .csv, .tsv 등)만 업로드할 수 있습니다.');
+    return;
+  }
+  // ArrayBuffer로 읽어서 UTF-8 / EUC-KR 자동 판별
+  const reader = new FileReader();
+  reader.onerror = () => alert('파일을 읽을 수 없습니다.');
+  reader.onload = e => {
+    const buf = e.target.result;
+    let text = '';
+    try {
+      // UTF-8 strict 디코딩 시도
+      const dec = new TextDecoder('utf-8', { fatal: true });
+      text = dec.decode(buf);
+    } catch(_) {
+      // 실패하면 EUC-KR 시도
+      try {
+        const dec2 = new TextDecoder('euc-kr', { fatal: false });
+        text = dec2.decode(buf);
+      } catch(__) {
+        alert('인코딩을 인식할 수 없습니다. UTF-8 또는 EUC-KR 파일을 사용해 주세요.');
+        return;
+      }
+    }
+    $('rawText').value = text;
+    $('chip').textContent = '📄 ' + f.name;
+    $('chip').style.display = 'block';
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+/* ── 기본값 읽기 ── */
+function getDefSup(vendorName){
+  return{
+    base:     vendorName,           // 업체명을 회사명 기본값으로
+    delivery: '',                   // 업체별 납기는 기본 비워둠
+    unit:     '',                   // 단위는 기본값 비워둠 → 전체 기본값 사용
+    mgr:  $('defMgr').value,
+    title:$('defTitle').value,
+    tel:  $('defTel').value,
+    fax:  $('defFax').value,
+    email:$('defEmail').value,
+    homepage:$('defHomepage').value,
+    addr: $('defAddr').value,
+  };
+}
+
+/* ── 파싱 ── */
+async function parseVendors(){
+  const txt=$('rawText').value.trim();
+  if(!txt){alert('텍스트를 입력하거나 파일을 업로드해 주세요.');return;}
+  setSt('p','loading','분석 중...');
+  $('varea').innerHTML=`<div class="empty"><div class="spin" style="width:22px;height:22px;margin:0 auto 12px"></div><p style="font-size:12px">업체별 품목을 분석하고 있습니다...</p></div>`;
+  $('genBtn').disabled=true;
+
+  let parsed=null;
+  const ak=$('apiKey').value.trim();
+  if(ak){
+    try{
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':ak,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:3000,messages:[{role:'user',content:
+          `아래 발주 텍스트에서 업체별 품목을 추출하여 JSON 배열만 응답하세요. 마크다운 없이 순수 JSON만.\n형식:[{"vendor":"업체명","items":[{"no":1,"code":"","name":"품목명","qty":"수량","unit":"개","price":"","note":""}]}]\n텍스트:\n${txt}`}]})
+      });
+      const data=await res.json();
+      if(!data.error){const raw=data.content[0].text.trim().replace(/^```json|^```|```$/g,'').trim();parsed=JSON.parse(raw);}
+    }catch(e){console.warn('AI 실패:',e.message);}
+  }
+  if(!parsed)parsed=localParse(txt);
+
+  if(!parsed||!parsed.length){
+    setSt('p','err','업체를 찾지 못했습니다.');
+    $('varea').innerHTML=`<div class="empty"><div class="ei">⚠️</div><p>지원 형식:<br>① 탭 구분 표 (코드\t업체명\t품목명\t수량)<br>② [업체명] 섹션 형식<br>③ API 키 입력 시 자유 형식</p></div>`;
+    return;
+  }
+
+  // 업체명을 회사명 기본값으로, 나머지 공통 기본값 적용
+  vendors=parsed.map(v=>({...v, sup:getDefSup(v.vendor), saved:false, pdfDone:false}));
+  renderCards();
+  setSt('p','ok',`✓ ${vendors.length}개 업체 분석 완료`);
+  $('genBtn').disabled=false;
+  $('saveBtn').disabled=false;
+  $('rstBtn').style.display='';
+}
+
+/* ── 로컬 파싱 ── */
+function localParse(txt){
+  const lines=txt.split('\n').map(l=>l.trim()).filter(Boolean);
+  const hPat=/코드|업체|품목|요청|수량|단가|code|vendor|item|qty/i;
+  if(lines.filter(l=>l.includes('\t')).length>2){
+    const hdr=lines[0].split('\t').map(c=>c.trim().toLowerCase());
+    let ci=0,vi=1,ni=2,qi=3;
+    hdr.forEach((h,i)=>{
+      if(/코드|code/.test(h))ci=i;
+      else if(/업체|vendor/.test(h))vi=i;
+      else if(/품목|item|name/.test(h))ni=i;
+      else if(/요청|수량|qty/.test(h))qi=i;
+    });
+    const map={};
+    for(let _i=0;_i<lines.length;_i++){
+      const line=lines[_i];
+      if(_i===0&&hPat.test(line))continue;
+      const c=line.split('\t').map(x=>x.trim());
+      if(c.length<2)continue;
+      const code=c[ci]||'',vendor=c[vi]||'',name=c[ni]||'',qty=(c[qi]||'').replace(/,/g,'');
+      if(!vendor||!name||hPat.test(line))continue;
+      if(!map[vendor])map[vendor]=[];
+      map[vendor].push({no:map[vendor].length+1,code,name,qty,unit:'',price:'',note:''});
+    }
+    const r=Object.entries(map).map(([vendor,items])=>({vendor,items}));
+    if(r.length)return r;
+  }
+  if(lines.some(l=>/^\[.+\]$/.test(l))){
+    const r=[];let cu=null;
+    for(const line of lines){
+      if(/^\[.+\]$/.test(line)){if(cu)r.push(cu);cu={vendor:line.slice(1,-1),items:[]};}
+      else if(cu){const p=line.split(/\s+/);cu.items.push({no:cu.items.length+1,code:'',name:p[0]||line,qty:p[1]||'',unit:'',price:p[2]||'',note:''});}
+    }
+    if(cu)r.push(cu);
+    return r;
+  }
+  return[];
+}
+
+/* ── 카드 렌더링 ── */
+function renderCards(){
+  const grid=document.createElement('div');
+  grid.className='vgrid';
+  vendors.forEach((_,vi)=>grid.appendChild(buildCard(vi)));
+  $('varea').innerHTML='';
+  $('varea').appendChild(grid);
+}
+
+function buildCard(vi){
+  const v=vendors[vi];
+  const PREV=5;
+  const rows=v.items.slice(0,PREV).map(it=>{
+    const info=[it.qty?it.qty+(it.unit||''):'',it.code||''].filter(Boolean).join(' · ');
+    return `<div class="vitem"><span class="vitem-name">${esc(it.name)}</span><span class="vitem-qty">${esc(info)}</span></div>`;
+  }).join('');
+  const more=v.items.length>PREV?`<div class="more-items">+ ${v.items.length-PREV}개 더...</div>`:'';
+
+  const el=document.createElement('div');
+  el.className='vcard';
+  el.id=`vc${vi}`;
+  el.innerHTML=`
+    <div class="vcard-head">
+      <span class="vname">${esc(v.vendor)}</span>
+      <span class="vbadge">${v.items.length}개 품목</span>
+    </div>
+    <div class="vcard-body">
+      <div class="vitems">${rows}${more}</div>
+    </div>
+    <div class="vcard-foot">
+      <div class="vcard-btn-wrap">
+        <button class="btn sm" onclick="openModal(${vi})">✏️ 정보 입력</button>
+        <span class="saved-chip${v.saved?' on':''}" id="sc${vi}">✓ 저장됨</span>
+      </div>
+      <div class="vcard-btn-wrap">
+        <button class="btn sm blu" onclick="generateOne(${vi},'print')" id="pdfBtn${vi}">📄 PDF 생성</button>
+        <span style="display:${v.pdfDone?'inline-flex':'none'};font-size:10px;color:#1a6636;background:#edf6f0;border:1px solid #b8dfc7;border-radius:4px;padding:3px 8px;font-weight:600;white-space:nowrap;justify-content:center" id="pdfDone${vi}">✓ 생성완료</span>
+      </div>
+    </div>`;
+  return el;
+}
+
+function refreshCard(vi){
+  const old=$(`vc${vi}`);
+  if(old)old.replaceWith(buildCard(vi));
+}
+
+/* ── 모달 열기 ── */
+function openModal(vi){
+  editingVi=vi;
+  const s=vendors[vi].sup;
+  $('mTitle').textContent='공급자 정보 입력';
+  $('mSub').textContent=`업체: ${vendors[vi].vendor}`;
+  $('m_base').value    =s.base||vendors[vi].vendor;
+  // 단위 세팅
+  const mSel=$('m_unit_sel'), mCust=$('m_unit_custom');
+  const mUnitVal=s.unit||$('unitDefault').value||'EA';
+  if(mUnitVal==='EA'||mUnitVal==='KG'){
+    mSel.value=mUnitVal; mCust.style.display='none';
+  } else {
+    mSel.value='custom'; mCust.style.display=''; mCust.value=mUnitVal;
+  }
+  $('m_mgr').value     =s.mgr||'';
+  $('m_title').value   =s.title||'';
+  $('m_tel').value     =s.tel||'';
+  $('m_fax').value     =s.fax||'';
+  $('m_email').value   =s.email||'';
+  $('m_homepage').value=s.homepage||'';
+  $('m_addr').value    =s.addr||'';
+  $('m_delivery').value=s.delivery||'';
+  $('mbg').classList.add('open');
+  setTimeout(()=>$('m_base').focus(),80);
+}
+
+function closeModal(){$('mbg').classList.remove('open');editingVi=null;}
+
+/* 모달 바깥 클릭 시 닫기 */
+if($('mbg'))$('mbg').addEventListener('click',e=>{if(e.target===$('mbg'))closeModal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+/* 기본값 불러오기 */
+function fillDefault(){
+  if(editingVi===null)return;
+  const def=getDefSup(vendors[editingVi].vendor);
+  $('m_base').value    =def.base;
+  const fSel=$('m_unit_sel'), fCust=$('m_unit_custom');
+  const fUnitVal=$('unitDefault').value||'EA';
+  if(fUnitVal==='EA'||fUnitVal==='KG'){
+    fSel.value=fUnitVal; fCust.style.display='none';
+  } else {
+    fSel.value='custom'; fCust.style.display=''; fCust.value=fUnitVal;
+  }
+  $('m_mgr').value     =def.mgr;
+  $('m_title').value   =def.title;
+  $('m_tel').value     =def.tel;
+  $('m_fax').value     =def.fax;
+  $('m_email').value   =def.email;
+  $('m_homepage').value=def.homepage;
+  $('m_addr').value    =def.addr;
+  $('m_delivery').value=$('deliveryDate').value||'';
+}
+
+/* 저장 및 적용 */
+function saveModal(){
+  if(editingVi===null)return;
+  const sSel=$('m_unit_sel');
+  const sUnit=sSel.value==='custom'?$('m_unit_custom').value:sSel.value;
+  vendors[editingVi].sup={
+    base:    $('m_base').value,
+    unit:    sUnit,
+    mgr:     $('m_mgr').value,
+    title:   $('m_title').value,
+    tel:     $('m_tel').value,
+    fax:     $('m_fax').value,
+    email:   $('m_email').value,
+    homepage:$('m_homepage').value,
+    addr:    $('m_addr').value,
+    delivery:$('m_delivery').value,
+  };
+  vendors[editingVi].saved=true;
+  refreshCard(editingVi);
+  closeModal();
+}
+
+/* ── 공통 발주 정보 ── */
+function getInfo(){
+  return{
+    date:$('orderDate').value, no:$('orderNo').value, bizNo:$('bizNo').value,
+    unitDefault:(()=>{const sel=$('unitSel');return sel.value==='custom'?$('unitDefault').value||'EA':sel.value;})(),
+    deliveryDate:$('deliveryDate').value,
+    buyerName:$('buyerName').value, buyerManager:$('buyerManager').value,
+    buyerTitle:$('buyerTitle').value, buyerAddr:$('buyerAddr').value,
+    buyerTel:$('buyerTel').value, buyerFax:$('buyerFax').value,
+    buyerEmail:$('buyerEmail').value, buyerHomepage:$('buyerHomepage').value,
+  };
+}
+
+/* ── 일괄 생성/저장 ── */
+async function generateAll(mode='print', dirHandle=null){
+  if(!vendors.length)return;
+  $('genBtn').disabled=true;
+  $('saveBtn').disabled=true;
+  $('genBtn').innerHTML='<span class="spin"></span> 처리 중...';
+  $('saveBtn').innerHTML='<span class="spin"></span> 처리 중...';
+  $('dlList').innerHTML='';
+  $('dlEmpty').style.display='none';
+
+  if(mode==='save'){
+    // Step 1: 모든 PDF Blob 렌더링 (시간 소요)
+    setSt('g','loading','PDF 렌더링 중...');
+    const blobs=[], fnames=[];
+    for(let vi=0;vi<vendors.length;vi++){
+      const v=vendors[vi], info=getInfo();
+      const fname=`${v.vendor}(${info.date})`;
+      setSt('g','loading',`PDF 렌더링 중... (${vi+1}/${vendors.length})`);
+      vendors[vi].pdfDone=true;
+      const doneEl=$(`pdfDone${vi}`);
+      if(doneEl)doneEl.style.display='inline-flex';
+      if(!$(`dlr${vi}`)){
+        const row=document.createElement('div');
+        row.className='dl-item';row.id=`dlr${vi}`;
+        $('dlList').appendChild(row);$('dlEmpty').style.display='none';
+      }
+      const rowEl=$(`dlr${vi}`);
+      if(rowEl)rowEl.innerHTML=`<span class="dl-nm">📄 ${esc(fname)}.pdf</span><span style="font-size:11px;color:var(--t3)">⏳ 렌더링 중...</span>`;
+      blobs.push(await makePDFBlob(vi));
+      fnames.push(fname);
+      await sleep(80);
+    }
+
+    // Step 2: 렌더링 완료 → 폴더 선택 (user gesture 보장)
+    setSt('g','loading','저장 폴더를 선택해 주세요...');
+    let dh = null;
+    if(window.showDirectoryPicker){
+      try{
+        dh = await window.showDirectoryPicker({mode:'readwrite'});
+      }catch(e){
+        if(e.name==='AbortError'){
+          // 취소 → <a> 다운로드로 fallback
+          setSt('g','loading','다운로드 폴더에 저장 중...');
+        }
+        // dh remains null → fallback
+      }
+    }
+
+    // Step 3: 저장
+    setSt('g','loading','파일 저장 중...');
+    for(let i=0;i<blobs.length;i++){
+      const fname=fnames[i];
+      if(dh){
+        try{
+          const fh=await dh.getFileHandle(fname+'.pdf',{create:true});
+          const ws=await fh.createWritable();
+          await ws.write(blobs[i]);
+          await ws.close();
+        }catch(e){
+          // 폴더 저장 실패 → <a> 다운로드
+          const a=document.createElement('a');
+          a.href=URL.createObjectURL(new File([blobs[i]],fname+'.pdf',{type:'application/pdf'}));
+          a.download=fname+'.pdf';
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+        }
+      }else{
+        const a=document.createElement('a');
+        a.href=URL.createObjectURL(new File([blobs[i]],fname+'.pdf',{type:'application/pdf'}));
+        a.download=fname+'.pdf';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+      }
+      const rowEl=$(`dlr${i}`);
+      if(rowEl)rowEl.innerHTML=`<span class="dl-nm">📄 ${esc(fname)}.pdf</span>`
+        +`<div style="display:flex;gap:5px">`
+        +`<a class="dl-a" onclick="generateOne(${i},'print')">🔍 미리보기</a>`
+        +`<a class="dl-a" onclick="generateOne(${i},'save')">💾 저장</a>`
+        +`</div>`;
+      await sleep(100);
+    }
+    setSt('g','ok',`✓ ${vendors.length}개 발주서 저장 완료`);
+
+  }else{
+    // ── 일괄 생성(미리보기) ──
+    setSt('g','loading','발주서 생성 중...');
+    for(let vi=0;vi<vendors.length;vi++){
+      await generateOne(vi,'print');
+      await sleep(200);
+    }
+    setSt('g','ok',`✓ ${vendors.length}개 발주서 생성 완료`);
+  }
+
+  $('genBtn').innerHTML='🖨️ PDF 일괄 생성';
+  $('saveBtn').innerHTML='💾 PDF 일괄 저장';
+  $('genBtn').disabled=false;$('saveBtn').disabled=false;
+}
+
+/* ── 개별 생성/저장 ── */
+async function generateOne(vi, mode='print'){
+  const v    = vendors[vi];
+  const info = getInfo();
+  const fname = `${v.vendor}(${info.date})`;
+
+  // ① 배지 즉시 표시 (makePDF 전)
+  vendors[vi].pdfDone = true;
+  const doneEl = $(`pdfDone${vi}`);
+  if(doneEl) doneEl.style.display = 'inline-flex';
+
+  // ② 결과 목록: "생성 중" 표시
+  const rowId = `dlr${vi}`;
+  let rowEl = $(rowId);
+  if(!rowEl){
+    rowEl = document.createElement('div');
+    rowEl.className = 'dl-item';
+    rowEl.id = rowId;
+    $('dlList').appendChild(rowEl);
+    $('dlEmpty').style.display = 'none';
+  }
+  rowEl.innerHTML = `<span class="dl-nm">📄 ${esc(fname)}.pdf</span>`
+    + `<span style="font-size:11px;color:var(--t3)">⏳ 생성 중...</span>`;
+
+  // ③ PDF 생성 (mode: 'print' = 미리보기창, 'save' = 파일저장)
+  await makePDF(vi, mode);
+
+  // ④ 결과 목록: 완료 후 링크 표시
+  rowEl.innerHTML = `<span class="dl-nm">📄 ${esc(fname)}.pdf</span>`
+    + `<div style="display:flex;gap:5px">`
+    + `<a class="dl-a" onclick="generateOne(${vi},'print')">🔍 미리보기</a>`
+    + `<a class="dl-a" onclick="generateOne(${vi},'save')">💾 저장</a>`
+    + `</div>`;
+}
+
+/* ── PDF 일괄 저장 전 검사 ── */
+function bulkSaveCheck(){
+  if(!vendors.length)return;
+
+  // 전체 생성 여부 확인
+  const generated = vendors.filter(v=>v.pdfDone).length;
+  if(generated < vendors.length){
+    alert('PDF 일괄 저장 전에\n[PDF 일괄 생성] 버튼으로 전체 발주서를 먼저 생성해 주세요.\n\n현재 '+generated+' / '+vendors.length+'개 생성됨');
+    return;
+  }
+
+  // 폴더 선택 없이 바로 저장 시작 (렌더링 완료 후 폴더 선택 팝업)
+  generateAll('save', null);
+}
+
+/* ── PDF Blob만 생성 (저장 없음) ── */
+async function makePDFBlob(vi){
+  const v=vendors[vi], sup=v.sup, info=getInfo();
+  const { jsPDF }=window.jspdf;
+  const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
+  const wrap=document.createElement('div');
+  wrap.style.cssText='position:fixed;left:-9999px;top:0;width:794px;padding:40px;background:#fff';
+  wrap.innerHTML=buildPrintBody(v,sup,info);
+  document.body.appendChild(wrap);
+  try{
+    const canvas=await html2canvas(wrap,{scale:2,useCORS:true,logging:false,allowTaint:true});
+    const imgData=canvas.toDataURL('image/jpeg',0.92);
+    const pageW=210,pageH=297,margin=14;
+    const printW=pageW-margin*2,printH=pageH-margin*2;
+    const imgH=(canvas.height/canvas.width)*printW;
+    let yPos=0,isFirst=true;
+    while(yPos<imgH){
+      if(!isFirst)doc.addPage();isFirst=false;
+      const sliceH=Math.min(printH,imgH-yPos);
+      const srcY=(yPos/imgH)*canvas.height,srcH=(sliceH/imgH)*canvas.height;
+      const sc=document.createElement('canvas');
+      sc.width=canvas.width;sc.height=srcH;
+      sc.getContext('2d').drawImage(canvas,0,srcY,canvas.width,srcH,0,0,canvas.width,srcH);
+      doc.addImage(sc.toDataURL('image/jpeg',0.92),'JPEG',margin,margin,printW,sliceH);
+      yPos+=sliceH;
+    }
+  }finally{document.body.removeChild(wrap);}
+  return doc.output('blob');
+}
+
+/* ── jsPDF + html2canvas로 실제 PDF 파일 생성 ── */
+async function makePDF(vi, mode) {
+  const v    = vendors[vi];
+  const sup  = v.sup;
+  const info = getInfo();
+  const fname = `${v.vendor}(${info.date})`;
+
+  // 렌더용 숨김 div 생성
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;padding:40px;background:#fff';
+  wrap.innerHTML = buildPrintBody(v, sup, info);
+  document.body.appendChild(wrap);
+
+  let doc;
+  try {
+    const { jsPDF } = window.jspdf;
+    doc = new jsPDF({ orientation:'p', unit:'mm', format:'a4' });
+
+    const canvas = await html2canvas(wrap, { scale:2, useCORS:true, logging:false, allowTaint:true });
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+    const pageW = 210, pageH = 297;
+    const margin = 14;
+    const printW = pageW - margin * 2;
+    const printH = pageH - margin * 2;
+    const imgH   = (canvas.height / canvas.width) * printW;
+
+    let yPos   = 0;
+    let isFirst = true;
+    while (yPos < imgH) {
+      if (!isFirst) doc.addPage();
+      isFirst = false;
+      const sliceH   = Math.min(printH, imgH - yPos);
+      const srcY     = (yPos / imgH) * canvas.height;
+      const srcH     = (sliceH / imgH) * canvas.height;
+      const sc       = document.createElement('canvas');
+      sc.width       = canvas.width;
+      sc.height      = srcH;
+      sc.getContext('2d').drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+      doc.addImage(sc.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, printW, sliceH);
+      yPos += sliceH;
+    }
+  } finally {
+    document.body.removeChild(wrap);
+  }
+
+  if (mode === 'save') {
+    const pdfBlob = doc.output('blob');
+    if (window.showSaveFilePicker) {
+      try {
+        const fh = await window.showSaveFilePicker({
+          suggestedName: fname + '.pdf',
+          types: [{ description: 'PDF', accept: { 'application/pdf': ['.pdf'] } }]
+        });
+        const ws = await fh.createWritable();
+        await ws.write(pdfBlob);
+        await ws.close();
+      } catch(e) {
+        if (e.name !== 'AbortError') {
+          // fallback: <a> download
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(new File([pdfBlob], fname+'.pdf', {type:'application/pdf'}));
+          a.download = fname + '.pdf';
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        }
+      }
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new File([pdfBlob], fname+'.pdf', {type:'application/pdf'}));
+      a.download = fname + '.pdf';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    }
+  } else {
+    // 미리보기: data URI로 새 창 → <title>로 파일명 지정 (탭·저장 파일명 정상 표시)
+    const dataUri = doc.output('datauristring');
+    const win = window.open('', '_blank', 'width=960,height=800');
+    if (!win) { alert('팝업을 허용해 주세요.'); return; }
+    win.document.write(
+      '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+      '<title>' + fname + '.pdf</title>' +
+      '<style>*{margin:0;padding:0}body{background:#525659}' +
+      'embed{width:100vw;height:100vh;border:none}</style>' +
+      '</head><body>' +
+      '<embed src="' + dataUri + '" type="application/pdf">' +
+      '</body></html>'
+    );
+    win.document.close();
+  }
+}
+
+/* ── 발주서 본문 HTML (캔버스 렌더용) ── */
+function buildPrintBody(v, sup, info) {
+  const df = info.date.replace(/-/g,'.');
+  const unitFinal = sup.unit || info.unitDefault || 'EA';
+  const delivRaw  = sup.delivery || info.deliveryDate || '';
+  const delivFmt  = delivRaw ? delivRaw.replace(/-/g,'.') : '';
+
+  let rows = '';
+  v.items.forEach((it, i) => {
+    const qty  = it.qty
+      ? String(it.qty).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+      : '';
+    const unit = it.unit || unitFinal;
+    rows += `<tr>
+      <td style="text-align:center;border:.4pt solid #aaa;padding:1.5mm 2mm;height:7mm">${i+1}</td>
+      <td style="text-align:center;border:.4pt solid #aaa;padding:1.5mm 2mm;white-space:nowrap;font-size:7.5pt">${esc(it.code||'')}</td>
+      <td style="border:.4pt solid #aaa;padding:1.5mm 2mm">${esc(it.name||'')}</td>
+      <td style="text-align:center;border:.4pt solid #aaa;padding:1.5mm 2mm">${esc(qty)}</td>
+      <td style="text-align:center;border:.4pt solid #aaa;padding:1.5mm 2mm">${esc(unit)}</td>
+      <td style="text-align:center;border:.4pt solid #aaa;padding:1.5mm 2mm">${esc(delivFmt)}</td>
+      <td style="border:.4pt solid #aaa;padding:1.5mm 2mm">${esc(it.note||'')}</td>
+    </tr>`;
+  });
+  for (let i = v.items.length; i < 10; i++) {
+    rows += `<tr>${'<td style="border:.4pt solid #aaa;padding:1.5mm 2mm;height:7mm"></td>'.repeat(7)}</tr>`;
+  }
+
+  const LOGO = 'data:image/png;base64,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';
+
+  return `
+  <div style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:9pt;color:#000;width:740px">
+    <div style="text-align:right;margin-bottom:2px">
+      <img src="${LOGO}" style="height:40px;width:auto">
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:18pt;font-weight:900;letter-spacing:.2em;margin-bottom:2px">발 주 서</div>
+      <div style="font-size:8pt;color:#333">발주일 : ${df}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:12px;table-layout:fixed">
+      <colgroup>
+        <col style="width:22mm"><col style="width:50mm">
+        <col style="width:8mm">
+        <col style="width:28mm"><col>
+      </colgroup>
+      <tr>
+        <td style="font-weight:700;width:22mm;padding:1.2mm 2mm;vertical-align:top;white-space:nowrap">공급자</td>
+        <td style="padding:1.2mm 2mm;vertical-align:top;width:52mm">${esc(v.vendor)}</td>
+        <td style="width:10mm"></td>
+        <td style="font-weight:700;padding:1.2mm 2mm 1.2mm 4mm;vertical-align:top;white-space:nowrap">사업자등록번호</td>
+        <td style="padding:1.2mm 2mm;vertical-align:top">${esc(info.bizNo||'')}</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;width:22mm;padding:1.2mm 2mm;vertical-align:top;white-space:nowrap">발주 담당자</td>
+        <td style="padding:1.2mm 2mm;vertical-align:top;width:52mm">${esc(sup.mgr||'')}${sup.title?' '+esc(sup.title):''}</td>
+        <td></td>
+        <td style="font-weight:700;padding:1.2mm 2mm 1.2mm 4mm;vertical-align:top;white-space:nowrap">발주서 No.</td>
+        <td style="padding:1.2mm 2mm;vertical-align:top">${esc(info.no||'')}</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;width:22mm;padding:1.2mm 2mm;vertical-align:top;white-space:nowrap">주소</td>
+        <td style="padding:1.2mm 2mm;vertical-align:top;width:52mm">${esc(sup.addr||'')}</td>
+        <td></td>
+        <td style="font-weight:700;padding:1.2mm 2mm 1.2mm 4mm;vertical-align:top;white-space:nowrap">수급자</td>
+        <td style="padding:1.2mm 2mm;vertical-align:top">${esc(info.buyerName||'')}</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;width:22mm;padding:1.2mm 2mm;vertical-align:top;white-space:nowrap">Tel</td>
+        <td style="padding:1.2mm 2mm;vertical-align:top;width:52mm">${esc(sup.tel||'')}</td>
+        <td></td>
+        <td style="font-weight:700;padding:1.2mm 2mm 1.2mm 4mm;vertical-align:top;white-space:nowrap">담당자</td>
+        <td style="padding:1.2mm 2mm;vertical-align:top">${esc(info.buyerManager||'')}${info.buyerTitle?' '+esc(info.buyerTitle):''}</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;width:22mm;padding:1.2mm 2mm;vertical-align:top;white-space:nowrap">Fax</td>
+        <td style="padding:1.2mm 2mm;vertical-align:top;width:52mm">${esc(sup.fax||'')}</td>
+        <td></td>
+        <td style="font-weight:700;padding:1.2mm 2mm 1.2mm 4mm;vertical-align:top;white-space:nowrap">주소</td>
+        <td style="padding:1.2mm 2mm;vertical-align:top">${esc(info.buyerAddr||'')}</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;width:22mm;padding:1.2mm 2mm;vertical-align:top;white-space:nowrap">E-mail</td>
+        <td style="padding:1.2mm 2mm;vertical-align:top;width:52mm">${esc(sup.email||'')}</td>
+        <td></td>
+        <td style="font-weight:700;padding:1.2mm 2mm 1.2mm 4mm;vertical-align:top;white-space:nowrap">Tel</td>
+        <td style="padding:1.2mm 2mm;vertical-align:top">${esc(info.buyerTel||'')}</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;width:22mm;padding:1.2mm 2mm;vertical-align:top;white-space:nowrap">Homepage</td>
+        <td style="padding:1.2mm 2mm;vertical-align:top;width:52mm">${esc(sup.homepage||'')}</td>
+        <td></td>
+        <td style="font-weight:700;padding:1.2mm 2mm 1.2mm 4mm;vertical-align:top;white-space:nowrap">Fax</td>
+        <td style="padding:1.2mm 2mm;vertical-align:top">${esc(info.buyerFax||'')}</td>
+      </tr>
+      <tr>
+        <td></td><td></td><td></td>
+        <td style="font-weight:700;padding:1.2mm 2mm 1.2mm 4mm;vertical-align:top;white-space:nowrap">E-mail</td>
+        <td style="padding:1.2mm 2mm;vertical-align:top">${esc(info.buyerEmail||'')}</td>
+      </tr>
+      <tr>
+        <td></td><td></td><td></td>
+        <td style="font-weight:700;padding:1.2mm 2mm 1.2mm 4mm;vertical-align:top;white-space:nowrap">Homepage</td>
+        <td style="padding:1.2mm 2mm;vertical-align:top">${esc(info.buyerHomepage||'')}</td>
+      </tr>
+    </table>
+    <div style="text-align:right;font-size:7.5pt;color:#555;margin-bottom:2px">(단위 : 원)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:8.5pt">
+      <thead>
+        <tr style="background:#f2f1ed">
+          <th style="border:.5pt solid #666;padding:2mm;width:8mm">No</th>
+          <th style="border:.5pt solid #666;padding:2mm;width:18mm">코드</th>
+          <th style="border:.5pt solid #666;padding:2mm">품목</th>
+          <th style="border:.5pt solid #666;padding:2mm;width:13mm">수량</th>
+          <th style="border:.5pt solid #666;padding:2mm;width:13mm">단위</th>
+          <th style="border:.5pt solid #666;padding:2mm;width:20mm">납기요청</th>
+          <th style="border:.5pt solid #666;padding:2mm;width:18mm">비고</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+      <tfoot>
+        <tr>
+          <td colspan="2" style="border:.5pt solid #666;background:#f8f8f6;font-weight:700;font-size:9.5pt;padding:2mm;text-align:center">합 계</td>
+          <td colspan="5" style="border:.5pt solid #666;background:#f8f8f6;font-size:8pt;padding:2mm">부가세 별도</td>
+        </tr>
+      </tfoot>
+    </table>
+    <div style="margin-top:8px;font-size:7.5pt;line-height:1.85;color:#222">
+      <div style="font-weight:700;margin-bottom:2px;font-size:8.5pt">비 고</div>
+      상기 건의 자재를 발주함에 충실히 이행하며, 납기지연 및 규격, 품질불량이 생겼을 경우에는 즉시 조치함을 서명합니다.<br>
+      자재 발주서의 내용 및 미비사항이 있을 경우 즉시 연락하여 주십시오.<br>
+      발주서 접수 후 24시간 이내에 연락사항이 없을 시 원만히 진행된 것으로 간주함.
+      <div style="color:#0077cc;font-weight:700;margin-top:3px">환경유해물질 관리기준을 만족할것(RoHs 지침에 준수하는 부품 공급 및 유해물질 미함유된 부품임)</div>
+    </div>
+    <div style="margin-top:6px;font-size:7.5pt;color:#333;line-height:1.75">귀사와 당사자간에 체결된 자재거래 기본계약에 의거 상기의 주문내역을 통보하오니 적기에 공급하여 주시기 바랍니다.</div>
+    <div style="text-align:right;margin-top:10px">
+      <div style="font-size:11pt;font-weight:800">인탑스 주식회사</div>
+    </div>
+  </div>`;
+}
+
+/* ── 리셋 ── */
+function resetAll(){
+  if(!confirm('현재 작업(파일·품목·결과)을 초기화하고 새 발주서를 시작하시겠습니까?\n(수급자 정보와 공급자 기본값은 유지됩니다)'))return;
+  vendors=[];
+  $('rawText').value='';
+  $('chip').style.display='none';fi.value='';
+  $('dlList').innerHTML='';$('dlEmpty').style.display='';
+  $('varea').innerHTML=`<div class="empty"><div class="ei">📋</div><p>발주 내역 파일을 업로드하고<br><strong>업체 자동 분석</strong>을 실행하면<br>업체별 카드가 나타납니다.</p></div>`;
+  setSt('p','','분석 대기 중...');setSt('g','','');
+  $('genBtn').disabled=true;$('saveBtn').disabled=true;$('rstBtn').style.display='none';
+  // P260429-1 → P260429-2 형식 처리
+  const cur=$('orderNo').value;
+  const m2=cur.match(/^(P\d+)-(\d+)$/);
+  if(m2){
+    $('orderNo').value=m2[1]+'-'+String(Number(m2[2])+1);
+  } else {
+    const m1=cur.match(/^([A-Za-z]+\d+)$/);
+    if(m1) $('orderNo').value=m1[1]+'-1';
+  }
+}
+
+/* ── 유틸 ── */
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function setSt(t,type,msg){
+  const el=t==='g'?$('gSt'):$('pSt');
+  el.className='sline'+(type==='ok'?' ok':type==='err'?' err':'');
+  el.innerHTML=type==='loading'?`<span class="spin"></span><span>${msg}</span>`:msg;
+}
+</script>
+</body>
+</html>
