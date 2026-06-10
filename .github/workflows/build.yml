@@ -33,7 +33,11 @@ jobs:
 
       - name: Build EXE
         run: |
-          pyinstaller --onefile --windowed `
+          python -m PyInstaller `
+            --onefile `
+            --windowed `
+            --clean `
+            --noconfirm `
             --name "INTOPS_발주서생성기" `
             --add-data "app\INTOPS_발주서생성기.html;." `
             app\main.py
@@ -60,6 +64,5 @@ jobs:
           body: |
             ## INTOPS 발주서 생성기 ${{ github.ref_name }}
             `INTOPS_발주서생성기.exe` 를 다운로드하여 더블클릭으로 실행하세요.
-            Python 설치 불필요.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
