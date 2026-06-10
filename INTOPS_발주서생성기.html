@@ -372,6 +372,35 @@ textarea::placeholder{color:var(--t3);font-size:10.5px}
 <div id="print-area"></div>
 
 <script>
+
+/* ── PyWebView API로 PDF 저장 (팝업 없음) ── */
+async function savePdfViaAPI(fname, pdfBlob) {
+  // base64 변환
+  const arrayBuf = await pdfBlob.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuf);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  const b64 = btoa(binary);
+
+  if (window.pywebview && window.pywebview.api) {
+    // EXE 환경: Python API로 저장 (팝업 없음)
+    const result = await window.pywebview.api.save_pdf(fname, b64);
+    if (result.ok) {
+      return result.path;
+    } else if (result.error !== 'cancelled') {
+      console.error('PDF 저장 오류:', result.error);
+    }
+  } else {
+    // 브라우저 환경: <a download> 방식
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new File([pdfBlob], fname + '.pdf', {type:'application/pdf'}));
+    a.download = fname + '.pdf';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
+  return null;
+}
+
 const $ = id => document.getElementById(id);
 
 function onUnitSelChange(){
@@ -718,11 +747,7 @@ async function generateAll(mode='save', dirHandle=null){
     setSt('g','loading','파일 저장 중...');
     for(let i=0;i<blobs.length;i++){
       const fname=fnames[i];
-      const a=document.createElement('a');
-      a.href=URL.createObjectURL(new File([blobs[i]],fname+'.pdf',{type:'application/pdf'}));
-      a.download=fname+'.pdf';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+      await savePdfViaAPI(fname, blobs[i]);
       const rowEl=$(`dlr${i}`);
       if(rowEl)rowEl.innerHTML=`<span class="dl-nm">📄 ${esc(fname)}.pdf</span>`
         +`<div style="display:flex;gap:5px">`
@@ -730,7 +755,19 @@ async function generateAll(mode='save', dirHandle=null){
         +`</div>`;
       await sleep(100);
     }
-    setSt('g','ok',`✓ ${vendors.length}개 발주서 저장 완료`);
+    setSt('g','ok',`✓ ${vendors.length}개 발주서 저장 완료 — Documents/발주서 폴더`);
+    // 저장 폴더 열기 버튼 표시
+    if (window.pywebview && window.pywebview.api) {
+      const openBtn = document.createElement('button');
+      openBtn.textContent = '📂 저장 폴더 열기';
+      openBtn.className = 'btn sm';
+      openBtn.style.marginTop = '6px';
+      openBtn.onclick = () => window.pywebview.api.open_folder(
+        (navigator.platform||'').includes('Win')
+          ? (window.__lastSavePath || '')
+          : ''
+      );
+    }
 
   }else{
     // ── 일괄 생성(미리보기) ──
@@ -871,15 +908,9 @@ async function makePDF(vi, mode) {
     document.body.removeChild(wrap);
   }
 
-  // 팝업 없이 무조건 직접 다운로드
+  // Python API로 저장 (팝업 없음)
   const pdfBlob = doc.output('blob');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new File([pdfBlob], fname + '.pdf', {type:'application/pdf'}));
-  a.download = fname + '.pdf';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  await savePdfViaAPI(fname, pdfBlob);
 }
 
 /* ── 발주서 본문 HTML (캔버스 렌더용) ── */
