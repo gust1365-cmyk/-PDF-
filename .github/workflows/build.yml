@@ -24,6 +24,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install pywebview==4.4.1 pyinstaller==6.11.1
 
+      - name: Delete spec files (prevent conflict)
+        run: |
+          Get-ChildItem -Path . -Filter "*.spec" -Recurse | Remove-Item -Force
+          echo "spec files removed"
+
       - name: Check files
         run: |
           echo "=== Root ==="
@@ -32,15 +37,15 @@ jobs:
           dir app
 
       - name: Build EXE
-        run: |
-          python -m PyInstaller `
-            --onefile `
-            --windowed `
-            --clean `
-            --noconfirm `
-            --name "INTOPS_발주서생성기" `
-            --add-data "app\INTOPS_발주서생성기.html;." `
-            app\main.py
+        run: >
+          python -m PyInstaller
+          --onefile
+          --windowed
+          --clean
+          --noconfirm
+          --name "INTOPS_발주서생성기"
+          "--add-data=app\INTOPS_발주서생성기.html;."
+          app\main.py
 
       - name: Verify build
         run: |
@@ -62,7 +67,6 @@ jobs:
           files: dist\INTOPS_발주서생성기.exe
           name: "INTOPS 발주서 생성기 ${{ github.ref_name }}"
           body: |
-            ## INTOPS 발주서 생성기 ${{ github.ref_name }}
-            `INTOPS_발주서생성기.exe` 를 다운로드하여 더블클릭으로 실행하세요.
+            `INTOPS_발주서생성기.exe` 를 다운로드 후 더블클릭으로 실행하세요.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
